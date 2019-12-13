@@ -44,7 +44,7 @@ class VendingMachine():
         return (currency, product_list, coin_quantities,
                 change_coins_minimum_allowed)
 
-    def __are_input_coins_acceptable(self, coins_list):
+    def are_input_coins_acceptable(self, coins_list):
         """
         Checks if Input Coins be accepted as a valid amount based
         on change possible
@@ -74,7 +74,7 @@ class VendingMachine():
 
         return True
 
-    def __is_sale_possible(self, product_id):
+    def is_sale_possible(self, product_id):
         """
         Returns True if sale possible, Else False
         """
@@ -150,7 +150,7 @@ class VendingMachine():
         self.amount_inserted = sum(amount_inserted_list)
         self.amount_inserted_list = amount_inserted_list
         self.amount_left = self.amount_inserted
-        coins_acceptable = self.__are_input_coins_acceptable(
+        coins_acceptable = self.are_input_coins_acceptable(
             self.amount_inserted_list)
         if coins_acceptable:
             self.current_state = INPUT_ACCEPTANCE
@@ -160,7 +160,7 @@ class VendingMachine():
         """
         Updates the Product count and returns change amount
         """
-        sale_possible = self.__is_sale_possible(product_id)
+        sale_possible = self.is_sale_possible(product_id)
         if not sale_possible:
             self.sale_success = False
             return False
