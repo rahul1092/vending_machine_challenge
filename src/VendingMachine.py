@@ -1,4 +1,6 @@
+import sys
 from collections import Counter
+from constants import *
 from Product import Product
 
 
@@ -22,9 +24,10 @@ class VendingMachine():
 
         self.coins = initialization_data[2]
         self.change_coins_allowed_quantities = initialization_data[3]
-        self.current_state = 0
+        self.current_state = INITIAL_STAGE
         self.amount_inserted = 0
         self.change_coins_dict = {}
+        self.amount_left = None
 
     def __initialization_data(self):
         """
@@ -48,10 +51,20 @@ class VendingMachine():
         :return: True if coins acceptable Else False
         """
         coins_dict = Counter(coins_list)
+
         def higher_value_coins_present(coins_dict, coin_value):
             for coin in coins_dict.items():
                 if coin[0] > coin_value:
                     return True
+            return False
+
+        coin_value = sum(coins_list)
+        purchase_possible = False
+        for product in self.product_dict.items():
+            if product[1][0].price <= coin_value:
+                purchase_possible = True
+                break
+        if not purchase_possible:
             return False
 
         for change_coins in self.change_coins_allowed_quantities.items():
@@ -63,13 +76,13 @@ class VendingMachine():
 
     def __is_sale_possible(self, product_id):
         """
-        :return: True if sale possible, Else False
+        Returns True if sale possible, Else False
         """
         if product_id not in self.product_dict:
             return False
         if self.product_dict[product_id][1] == 0:
             return False
-        if self.product_dict[product_id][0].price > self.amount_inserted:
+        if self.product_dict[product_id][0].price > self.amount_left:
             return False
 
         return True
@@ -107,14 +120,22 @@ class VendingMachine():
             return {}
         return change_coin_dict
 
-    def set_machine_state(self, state):
-        self.current_state = state
+    def __add_inserted_coins_to_pool(self):
+        """
+        Adds the coins entered for purchase to coin pool
+        """
+        for coin in self.amount_inserted_list:
+            self.coins[coin] += 1
 
-    def get_machine_state(self):
-        return self.current_state
-
-    def set_error_msg(self, error_msg):
-        self.error_msg = error_msg
+    def __get_product_status_text(self, product_id):
+        """
+        Returns product status displayed on terminal
+        """
+        if self.product_dict[product_id][1] == 0:
+            return 'Sold out'
+        if self.amount_left and self.product_dict[product_id][0].price <= self.amount_left:
+            return 'Can Purchase'
+        return ''
 
     def get_currency(self):
         """
@@ -128,9 +149,11 @@ class VendingMachine():
         """
         self.amount_inserted = sum(amount_inserted_list)
         self.amount_inserted_list = amount_inserted_list
-        coins_acceptable = self.__are_input_coins_acceptable(self.amount_inserted_list)
-        if not coins_acceptable:
-            self.error_msg = 'Change unavailable. Please take back your coins'
+        self.amount_left = self.amount_inserted
+        coins_acceptable = self.__are_input_coins_acceptable(
+            self.amount_inserted_list)
+        if coins_acceptable:
+            self.current_state = INPUT_ACCEPTANCE
         return coins_acceptable
 
     def make_sale(self, product_id):
@@ -144,22 +167,34 @@ class VendingMachine():
 
         product_info = self.product_dict[product_id]
         product_info[1] -= 1
-        self.return_amount = self.amount_inserted - product_info[0].price
+        self.return_amount = self.amount_left - product_info[0].price
+        self.amount_left -= product_info[0].price
         self.sale_success = True
         self.sale_item_ids.append(product_id)
+        self.current_state = PRODUCT_BUYING_INFO
         return True
 
     def get_items_in_outlet_list(self):
+        """
+        Returns list if ids for products which can be put in outlet
+        """
         return self.sale_item_ids.copy()
 
     def set_item_at_outlet(self):
+        """
+        Moves purchased items to outlet
+        """
         if self.sale_success:
             self.item_at_oulet = True
             self.sale_item_ids = []
+            self.current_state = ITEM_AT_OUTLET
             return True
         return False
 
     def get_change_amount(self):
+        """
+        Returns the details of the change
+        """
         if not self.sale_success:
             return False, {}
 
@@ -173,39 +208,70 @@ class VendingMachine():
             for coin in change_coins_dict.items():
                 self.coins[coin[0]] -= coin[1]
 
+        self.__add_inserted_coins_to_pool()
+        self.amount_inserted = 0
         self.change_coins_returned = True
         self.change_coins_dict = change_coins_dict
+        self.current_state = CHANGE_AMOUNT_PRODUCTION
         return True, change_coins_dict
 
     def get_coins_from_return_gate(self):
+        """
+        Removes coins from return gate
+        """
         if self.change_coins_returned:
             self.reset_to_initial()
+            self.current_state = CHANGE_AT_RETURN_GATE
             return True
         return False
 
     def get_current_change_status(self):
+        """
+        Returns details of availability of change
+        """
         change_coins_state = {}
         for coin in self.change_coins_allowed_quantities.items():
-            change_coins_state[coin[0]] = "Change" if self.coins[coin[0]] >= coin[1] else "No Change"
+            change_coins_state[coin[0]] = "Change" \
+                if self.coins[coin[0]] >= coin[1] else "No Change"
         return change_coins_state
 
     def get_product_details_list(self):
+        """
+        Returns the list of products that are displayed on the terminal
+        """
         product_ids = list(self.product_dict.keys())
         product_ids.sort()
-        product_listing = [self.get_product_details(product_id) for product_id in product_ids]
+        product_listing = [self.get_product_details(
+            product_id) for product_id in product_ids]
         return product_listing
 
     def get_product_details(self, product_id):
+        """
+        Returns a dictionary containing information about a product
+        """
         product_info = {}
         product_info['id'] = product_id
         product_info['name'] = self.product_dict[product_id][0].product_name
         product_info['price'] = self.product_dict[product_id][0].price
+        product_info['status'] = self.__get_product_status_text(product_id)
         return product_info
-    
+
+    def shut_down(self):
+        """
+        Exits the program
+        """
+        sys.exit()
+
     def get_input_amount(self):
+        """
+        Returns the value of amount inserted by the user
+        """
         return self.amount_inserted
 
     def get_change_coins_dict(self):
+        """
+        Returns the dictionary containing information of change
+        """
         return self.change_coins_dict
 
     def reset_to_initial(self):
@@ -217,15 +283,37 @@ class VendingMachine():
         self.return_amount = 0
         self.sale_success = None
         self.item_at_oulet = None
-        self.amount_inserted = 0
         self.change_coins_dict = {}
+        self.amount_left = None
+        self.current_state = INITIAL_STAGE
 
     def command_allowed(self, input_command):
         """
         Checks if the input command is allowed for the given state
         of the vending machine
         """
-        return True
-        # if input_command - self.current_state == 1:
-        #     return True
-        # return False
+        if self.current_state == INITIAL_STAGE and input_command not in \
+                [INPUT_ACCEPTANCE]:
+            return False, [INPUT_ACCEPTANCE]
+
+        if self.current_state == INPUT_ACCEPTANCE and input_command \
+                not in [INPUT_ACCEPTANCE, PRODUCT_BUYING_INFO]:
+            return False, [INPUT_ACCEPTANCE, PRODUCT_BUYING_INFO]
+
+        if self.current_state == PRODUCT_BUYING_INFO and input_command \
+                not in [PRODUCT_BUYING_INFO, ITEM_AT_OUTLET]:
+            return False, [PRODUCT_BUYING_INFO, ITEM_AT_OUTLET]
+
+        if self.current_state == ITEM_AT_OUTLET and input_command \
+                not in [CHANGE_AMOUNT_PRODUCTION]:
+            return False, [CHANGE_AMOUNT_PRODUCTION]
+
+        if self.current_state == CHANGE_AMOUNT_PRODUCTION and \
+                input_command not in [CHANGE_AT_RETURN_GATE]:
+            return False, [CHANGE_AT_RETURN_GATE]
+
+        if self.current_state == CHANGE_AT_RETURN_GATE and \
+                input_command not in [INPUT_ACCEPTANCE, MACHINE_SHUT_DOWN]:
+            return False, [INPUT_ACCEPTANCE, MACHINE_SHUT_DOWN]
+
+        return True, []

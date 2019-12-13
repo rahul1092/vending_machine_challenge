@@ -1,7 +1,9 @@
 import os
 from subprocess import call
+from constants import *
 from VendingMachine import VendingMachine
-import ipdb
+# import ipdb
+
 
 class TerminalAdapter():
     """
@@ -34,31 +36,36 @@ class TerminalAdapter():
         if len(input_value_list) > 1:
             input_args = input_value_list[1:]
 
-        if input_command == 1 and input_args and \
-                self.vending_machine.command_allowed(input_command):
-            coins_acceptable = self.vending_machine.set_amount_inserted(input_args)
+        valid_command, valid_states = self.vending_machine.command_allowed(
+            input_command)
+        if not valid_command:
+            self.error_msg = f'Wrong command selected. Allowed command ' \
+                             f'at this stage {str(valid_states)}'
+            return
+
+        if input_command == INPUT_ACCEPTANCE and input_args:
+            coins_acceptable = self.vending_machine.set_amount_inserted(
+                input_args)
             if not coins_acceptable:
                 self.error_msg = 'Invalid amount inserted. Please try again'
 
-        if input_command == 2 and input_args and \
-                self.vending_machine.command_allowed(input_command):
+        if input_command == PRODUCT_BUYING_INFO and input_args:
             # import ipdb; ipdb.set_trace()
             sale_success = self.vending_machine.make_sale(input_args[0])
             if not sale_success:
                 self.error_msg = 'Unable to make sale. Please try again'
-            # return self.produce_display(input_command, sale_success)
 
-        if input_command == 3 and self.vending_machine.command_allowed(input_command):
-            success = self.vending_machine.set_item_at_outlet()
-            # return self.handle_input(3, success)
+        if input_command == ITEM_AT_OUTLET:
+            self.vending_machine.set_item_at_outlet()
 
-        if input_command == 4 and self.vending_machine.command_allowed(input_command):
-            return_val = self.vending_machine.get_change_amount()
-            # return self.handle_input(4, return_val)
+        if input_command == CHANGE_AMOUNT_PRODUCTION:
+            self.vending_machine.get_change_amount()
 
-        if input_command == 5 and self.vending_machine.command_allowed(input_command):
-            return_val = self.vending_machine.get_coins_from_return_gate()
-            # return self.handle_input(5, return_val)
+        if input_command == CHANGE_AT_RETURN_GATE:
+            self.vending_machine.get_coins_from_return_gate()
+
+        if input_command == MACHINE_SHUT_DOWN:
+            self.vending_machine.shut_down()
 
     def produce_display(self):
         """
@@ -100,7 +107,7 @@ class TerminalAdapter():
                 items_for_sale_text += '\t\t'
             not_first = True
             items_for_sale_text += f'\t {product["id"]}. {product["name"]} \t ' \
-                                   f'{product["price"]} {curreny}\n'
+                                   f'{product["price"]} {curreny} \t {product["status"]} \n'
         print(items_for_sale_text)
         outlet_text = f'[Outlet]'
         items_in_outlet = self.vending_machine.get_items_in_outlet_list()
