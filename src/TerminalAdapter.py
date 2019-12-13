@@ -2,7 +2,6 @@ import os
 from subprocess import call
 from constants import *
 from VendingMachine import VendingMachine
-# import ipdb
 
 
 class TerminalAdapter():
@@ -16,9 +15,7 @@ class TerminalAdapter():
 
     def __call__(self, *args, **kwargs):
         while True:
-            # ipdb.set_trace()
             self.produce_display()
-            # ipdb.set_trace()
             self.handle_input()
 
     def handle_input(self, input_value=None):

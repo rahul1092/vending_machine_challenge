@@ -58,6 +58,10 @@ class VendingMachine():
                     return True
             return False
 
+        for coin in coins_list:
+            if coin not in self.coins:
+                return False
+
         coin_value = sum(coins_list)
         purchase_possible = False
         for product in self.product_dict.items():
@@ -147,14 +151,21 @@ class VendingMachine():
         """
         Sets the coins that were inserted in the vending machine
         """
+        self.amount_inserted = 0
+        self.amount_inserted_list = []
+        self.amount_left = None
+
+        coins_acceptable = self.are_input_coins_acceptable(
+            amount_inserted_list)
+        if coins_acceptable:
+            self.current_state = INPUT_ACCEPTANCE
+        else:
+            return False
+
         self.amount_inserted = sum(amount_inserted_list)
         self.amount_inserted_list = amount_inserted_list
         self.amount_left = self.amount_inserted
-        coins_acceptable = self.are_input_coins_acceptable(
-            self.amount_inserted_list)
-        if coins_acceptable:
-            self.current_state = INPUT_ACCEPTANCE
-        return coins_acceptable
+        return True
 
     def make_sale(self, product_id):
         """
